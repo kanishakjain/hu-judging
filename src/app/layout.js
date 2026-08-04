@@ -24,10 +24,16 @@ export const metadata = {
   description: "Hackathon judging platform",
 };
 
+import { Toaster } from 'sonner';
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Toaster theme="dark" position="bottom-right" />
+      </body>
     </html>
   );
 }
+

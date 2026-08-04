@@ -10,17 +10,26 @@ function judgeEmail(judgeCode) {
   return `${judgeCode.trim().toLowerCase()}@${JUDGE_AUTH_DOMAIN}`;
 }
 
+// Basic sanitization
+function sanitize(input) {
+  if (typeof input !== 'string') return input;
+  return input.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 // ── Hackathons ──────────────────────────────────────────────
 export async function createHackathon(formData) {
-  const name = formData.get("name");
-  const description = formData.get("description");
+  const name = sanitize(formData.get("name")?.toString().trim());
+  const description = sanitize(formData.get("description")?.toString().trim());
+
+  if (!name) return { error: "Hackathon name is required." };
 
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
 
   const { data, error } = await supabase
     .from("hackathons")
-    .insert({ name, description, created_by: userData.user?.id })
+    .insert({ name, description, created_by: userData.user.id })
     .select()
     .single();
 
@@ -30,18 +39,36 @@ export async function createHackathon(formData) {
 }
 
 export async function setHackathonStatus(hackathonId, status) {
+  if (!["draft", "active", "completed"].includes(status)) return { error: "Invalid status." };
+  
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  // Verify ownership
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
+
   await supabase.from("hackathons").update({ status }).eq("id", hackathonId);
   revalidatePath(`/organizer/hackathons/${hackathonId}`);
+  return { error: null };
 }
 
 // ── Teams ───────────────────────────────────────────────────
 export async function addTeam(hackathonId, formData) {
-  const name = formData.get("name");
-  const members = formData.get("members");
-  const projectLink = formData.get("projectLink");
+  const name = sanitize(formData.get("name")?.toString().trim());
+  const members = sanitize(formData.get("members")?.toString().trim());
+  const projectLink = sanitize(formData.get("projectLink")?.toString().trim());
+
+  if (!name) return { error: "Team name is required." };
 
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
+
   const { error } = await supabase
     .from("teams")
     .insert({ hackathon_id: hackathonId, name, members, project_link: projectLink });
@@ -51,19 +78,26 @@ export async function addTeam(hackathonId, formData) {
   return { error: null };
 }
 
-// rows: [{ name, members, projectLink }]
 export async function importTeamsCSV(hackathonId, rows) {
   if (!rows?.length) return { error: "No rows to import." };
 
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
+
   const payload = rows
-    .filter((r) => r.name)
+    .filter((r) => r.name?.trim())
     .map((r) => ({
       hackathon_id: hackathonId,
-      name: r.name,
-      members: r.members || "",
-      project_link: r.projectLink || "",
+      name: sanitize(r.name.trim()),
+      members: sanitize(r.members || ""),
+      project_link: sanitize(r.projectLink || ""),
     }));
+
+  if (payload.length === 0) return { error: "No valid rows found." };
 
   const { error } = await supabase.from("teams").insert(payload);
   if (error) return { error: error.message };
@@ -74,17 +108,32 @@ export async function importTeamsCSV(hackathonId, rows) {
 
 export async function deleteTeam(hackathonId, teamId) {
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
+
   await supabase.from("teams").delete().eq("id", teamId);
   revalidatePath(`/organizer/hackathons/${hackathonId}`);
+  return { error: null };
 }
 
 // ── Judges ──────────────────────────────────────────────────
 export async function addJudge(hackathonId, formData) {
-  const name = formData.get("name");
-  const judgeCode = formData.get("judgeCode");
-  const password = formData.get("password");
+  const name = sanitize(formData.get("name")?.toString().trim());
+  const judgeCode = sanitize(formData.get("judgeCode")?.toString().trim());
+  const password = formData.get("password")?.toString().trim();
 
-  if (!judgeCode || !password) return { error: "Judge ID and password are required." };
+  if (!judgeCode || !password || !name) return { error: "Name, Judge ID, and password are required." };
+  if (password.length < 6) return { error: "Password must be at least 6 characters." };
+
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
 
   const admin = createAdminClient();
   const email = judgeEmail(judgeCode);
@@ -98,7 +147,6 @@ export async function addJudge(hackathonId, formData) {
 
   if (authError) return { error: authError.message };
 
-  const supabase = await createClient();
   const { error } = await supabase.from("judges").insert({
     hackathon_id: hackathonId,
     judge_code: judgeCode,
@@ -108,7 +156,6 @@ export async function addJudge(hackathonId, formData) {
   });
 
   if (error) {
-    // Roll back the auth user if the judges row failed (e.g. duplicate code)
     await admin.auth.admin.deleteUser(authUser.user.id);
     return { error: error.message };
   }
@@ -119,6 +166,12 @@ export async function addJudge(hackathonId, formData) {
 
 export async function deleteJudge(hackathonId, judgeId, authUserId) {
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
+
   await supabase.from("judges").delete().eq("id", judgeId);
 
   if (authUserId) {
@@ -127,14 +180,23 @@ export async function deleteJudge(hackathonId, judgeId, authUserId) {
   }
 
   revalidatePath(`/organizer/hackathons/${hackathonId}`);
+  return { error: null };
 }
 
 // ── Rounds ──────────────────────────────────────────────────
 export async function createRound(hackathonId, formData) {
-  const name = formData.get("name");
+  const name = sanitize(formData.get("name")?.toString().trim());
   const orderIndex = Number(formData.get("orderIndex")) || 1;
 
+  if (!name) return { error: "Round name is required." };
+
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
+
   const { data, error } = await supabase
     .from("rounds")
     .insert({ hackathon_id: hackathonId, name, order_index: orderIndex })
@@ -147,17 +209,35 @@ export async function createRound(hackathonId, formData) {
 }
 
 export async function setRoundStatus(hackathonId, roundId, status) {
+  if (!["upcoming", "active", "completed"].includes(status)) return { error: "Invalid status." };
+
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
+
   await supabase.from("rounds").update({ status }).eq("id", roundId);
   revalidatePath(`/organizer/hackathons/${hackathonId}/rounds/${roundId}`);
+  return { error: null };
 }
 
 // ── Criteria ────────────────────────────────────────────────
 export async function addCriterion(hackathonId, roundId, formData) {
-  const name = formData.get("name");
+  const name = sanitize(formData.get("name")?.toString().trim());
   const maxScore = Number(formData.get("maxScore")) || 10;
 
+  if (!name) return { error: "Criterion name is required." };
+  if (maxScore <= 0) return { error: "Max score must be positive." };
+
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
+
   const { error } = await supabase.from("criteria").insert({ round_id: roundId, name, max_score: maxScore });
 
   if (error) return { error: error.message };
@@ -167,18 +247,32 @@ export async function addCriterion(hackathonId, roundId, formData) {
 
 export async function deleteCriterion(hackathonId, roundId, criterionId) {
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
+
   await supabase.from("criteria").delete().eq("id", criterionId);
   revalidatePath(`/organizer/hackathons/${hackathonId}/rounds/${roundId}`);
+  return { error: null };
 }
 
 // ── Round team selection (advancement) ────────────────────
 export async function setRoundTeams(hackathonId, roundId, teamIds) {
+  if (!Array.isArray(teamIds)) return { error: "Invalid teams array." };
+
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
 
   await supabase.from("round_teams").delete().eq("round_id", roundId);
 
   if (teamIds.length) {
-    const rows = teamIds.map((teamId) => ({ round_id: roundId, team_id: teamId }));
+    const rows = teamIds.map((teamId) => ({ round_id: roundId, team_id: String(teamId) }));
     const { error } = await supabase.from("round_teams").insert(rows);
     if (error) return { error: error.message };
   }
@@ -187,9 +281,15 @@ export async function setRoundTeams(hackathonId, roundId, teamIds) {
   return { error: null };
 }
 
-// Advance the top N teams from the previous round's aggregated results
 export async function autoAdvanceTopN(hackathonId, roundId, previousRoundId, topN) {
+  if (topN <= 0) return { error: "Top N must be a positive number." };
+
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
 
   const { data: submissions, error } = await supabase
     .from("submissions")
@@ -219,12 +319,19 @@ export async function autoAdvanceTopN(hackathonId, roundId, previousRoundId, top
 
 // ── Judge ↔ team assignment ────────────────────────────────
 export async function setJudgeAssignments(hackathonId, roundId, judgeId, teamIds) {
+  if (!Array.isArray(teamIds)) return { error: "Invalid teams array." };
+
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+  
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
 
   await supabase.from("round_judge_assignments").delete().eq("round_id", roundId).eq("judge_id", judgeId);
 
   if (teamIds.length) {
-    const rows = teamIds.map((teamId) => ({ round_id: roundId, judge_id: judgeId, team_id: teamId }));
+    const rows = teamIds.map((teamId) => ({ round_id: roundId, judge_id: judgeId, team_id: String(teamId) }));
     const { error } = await supabase.from("round_judge_assignments").insert(rows);
     if (error) return { error: error.message };
   }

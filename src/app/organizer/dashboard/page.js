@@ -1,9 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import OrganizerTopbar from "@/components/OrganizerTopbar";
 import TerminalPath from "@/components/TerminalPath";
-import SubmitButton from "@/components/SubmitButton";
+import HackathonList from "@/components/organizer/HackathonList";
 import { createHackathon } from "../hackathons/actions";
 
 export default async function OrganizerDashboard() {
@@ -22,42 +21,12 @@ export default async function OrganizerDashboard() {
       <OrganizerTopbar email={userData.user.email} />
       <div className="page">
         <TerminalPath user="organizer" segments={["dashboard"]} />
-        <h1 className="title" style={{ marginBottom: 24 }}>
-          Hackathons
+        <h1 className="title" style={{ marginBottom: '2rem' }}>
+          Dashboard
         </h1>
 
-        <details className="card" style={{ marginBottom: 24 }}>
-          <summary style={{ cursor: "pointer", fontWeight: 600 }}>+ New hackathon</summary>
-          <form action={createHackathon} style={{ marginTop: 16 }}>
-            <div className="field">
-              <label htmlFor="name">Name</label>
-              <input className="input" id="name" name="name" required />
-            </div>
-            <div className="field">
-              <label htmlFor="description">Description</label>
-              <textarea className="textarea" id="description" name="description" />
-            </div>
-            <SubmitButton pendingText="Creating…">Create hackathon</SubmitButton>
-          </form>
-        </details>
-
-        {!hackathons?.length && (
-          <div className="empty">No hackathons yet. Create one to get started.</div>
-        )}
-
-        {hackathons?.map((h) => (
-          <Link key={h.id} href={`/organizer/hackathons/${h.id}`} className="card card-link">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <h2 style={{ fontSize: 17, marginBottom: 4 }}>{h.name}</h2>
-                {h.description && <p className="muted" style={{ fontSize: 13 }}>{h.description}</p>}
-              </div>
-              <span className={`badge ${h.status === "active" ? "badge-active" : ""}`}>{h.status}</span>
-            </div>
-          </Link>
-        ))}
+        <HackathonList initialHackathons={hackathons || []} createAction={createHackathon} />
       </div>
     </div>
   );
-            }
-            
+}

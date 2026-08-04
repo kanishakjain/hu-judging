@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { submitScore } from "@/app/judge/actions";
+import { toast } from "sonner";
+import { ChevronLeft, ChevronRight, Save } from "lucide-react";
 
 export default function JudgeScoringApp({ roundsData }) {
   const activeRounds = roundsData.filter((r) => r.round.status !== "completed");
@@ -13,7 +15,7 @@ export default function JudgeScoringApp({ roundsData }) {
   const current = list[roundIndex];
 
   if (!list.length) {
-    return <div className="empty">You don&apos;t have any teams assigned yet. Check back once your organizer sets up assignments.</div>;
+    return <div className="empty">You don't have any teams assigned yet. Check back once your organizer sets up assignments.</div>;
   }
 
   function handleRoundChange(index) {
@@ -113,53 +115,64 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
   const [scores, setScores] = useState(initialScores);
   const [feedback, setFeedback] = useState(existingSubmission?.feedback || "");
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState(null);
-  const [saveIndicator, setSaveIndicator] = useState("");
 
   const total = criteria.reduce((sum, c) => sum + (Number(scores[c.id]) || 0), 0);
   const maxTotal = criteria.reduce((sum, c) => sum + Number(c.max_score), 0);
 
-  // Auto-clear success message
-  useEffect(() => {
-    if (status?.success || saveIndicator) {
-      const timer = setTimeout(() => {
-        setStatus(null);
-        setSaveIndicator("");
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [status, saveIndicator]);
-
-  async function handleSubmit(e, goNext = false) {
+  const handleSubmit = useCallback(async (e, goNext = false) => {
     if (e && e.preventDefault) e.preventDefault();
     setBusy(true);
-    setStatus(null);
-    const res = await submitScore({ roundId, teamId: team.id, feedback, scores });
-    setBusy(false);
     
-    if (res.error) {
-      setStatus({ error: res.error });
-    } else {
-      if (goNext && onNext) {
-        onNext();
-      } else {
-        setSaveIndicator(existingSubmission?.submitted ? "Updated successfully!" : "Submitted successfully!");
-      }
+    const promise = submitScore({ roundId, teamId: team.id, feedback, scores });
+    
+    toast.promise(promise, {
+      loading: 'Saving scores...',
+      success: (res) => {
+        if (res.error) throw new Error(res.error);
+        if (goNext && onNext) onNext();
+        return existingSubmission?.submitted ? "Scores updated successfully!" : "Scores submitted successfully!";
+      },
+      error: (err) => err.message || 'Failed to save scores'
+    });
+
+    try {
+      await promise;
+    } finally {
+      setBusy(false);
     }
-  }
+  }, [roundId, team.id, feedback, scores, goNext, onNext, existingSubmission]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+      
+      if (e.key === 'ArrowRight' && onNext) {
+        onNext();
+      } else if (e.key === 'ArrowLeft' && onPrev) {
+        onPrev();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSubmit(null, false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onNext, onPrev, handleSubmit]);
 
   if (!criteria.length) {
-    return <div className="alert alert-error">This round has no judging criteria yet — ask your organizer to add some.</div>;
+    return <div className="empty">This round has no judging criteria yet — ask your organizer to add some.</div>;
   }
 
   return (
-    <form onSubmit={(e) => handleSubmit(e, false)} className="card">
+    <form onSubmit={(e) => handleSubmit(e, false)} className="card animate-in">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
         <div>
           <h2 className="title" style={{ fontSize: 24, marginBottom: 8 }}>{team.name}</h2>
           {team.members && <p className="muted" style={{ fontSize: 14, marginBottom: 8 }}>{team.members}</p>}
           {team.project_link && (
-            <a href={team.project_link} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 13, color: "var(--accent)" }}>
+            <a href={team.project_link} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 13, color: "var(--accent-primary)" }}>
               {team.project_link} ↗
             </a>
           )}
@@ -167,13 +180,9 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
         {existingSubmission?.submitted && <span className="badge badge-active">submitted — editable</span>}
       </div>
 
-      {status?.error && <div className="alert alert-error">{status.error}</div>}
-      {status?.success && <div className="alert alert-success">{status.success}</div>}
-
       <div style={{ display: "flex", flexDirection: "column", gap: 24, marginBottom: 24 }}>
         {criteria.map((c) => {
           const maxVal = Math.floor(Number(c.max_score));
-          // Generate an array [0, 1, ..., maxVal] for the bubbles
           const bubbleOptions = Array.from({ length: maxVal + 1 }, (_, i) => i);
           
           return (
@@ -208,23 +217,22 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           placeholder="What stood out, what could improve…"
-          style={{ minHeight: 100 }}
+          style={{ minHeight: 120 }}
         />
       </div>
 
-      <div style={{ borderTop: "1px solid var(--border)", paddingTop: 24, marginTop: 16 }}>
+      <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 24, marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <span className="score-big">Total: {total} / {maxTotal}</span>
-          {saveIndicator && <span className="muted" style={{ fontSize: 13, color: "var(--accent)" }}>{saveIndicator}</span>}
         </div>
         
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" className="btn btn-secondary" onClick={onPrev} disabled={!onPrev || busy}>
-              &larr; Prev
+              <ChevronLeft size={16} /> Prev
             </button>
-            <button type="button" className="btn btn-secondary" onClick={(e) => handleSubmit(e, false)} disabled={busy}>
-              {busy ? "Saving…" : "Save"}
+            <button type="button" className="btn btn-secondary" onClick={(e) => handleSubmit(e, false)} disabled={busy} title="Cmd+S to save">
+              <Save size={16} /> {busy ? "Saving…" : "Save"}
             </button>
           </div>
           
@@ -234,7 +242,7 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
             onClick={(e) => handleSubmit(e, true)} 
             disabled={busy}
           >
-            {busy ? "Saving…" : (onNext ? "Save & Next &rarr;" : "Save (Done)")}
+            {busy ? "Saving…" : (onNext ? "Save & Next" : "Save (Done)")} {onNext && <ChevronRight size={16} />}
           </button>
         </div>
       </div>

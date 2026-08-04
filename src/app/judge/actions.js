@@ -29,8 +29,16 @@ export async function logOutJudge() {
   redirect("/judge/login");
 }
 
+// Basic sanitization
+function sanitize(input) {
+  if (typeof input !== 'string') return input;
+  return input.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 // Upserts a submission + its per-criterion scores for the current judge.
 export async function submitScore({ roundId, teamId, feedback, scores }) {
+  const safeFeedback = sanitize(feedback);
+  
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData?.user) return { error: "Not logged in." };
@@ -50,7 +58,7 @@ export async function submitScore({ roundId, teamId, feedback, scores }) {
         round_id: roundId,
         judge_id: judge.id,
         team_id: teamId,
-        feedback,
+        feedback: safeFeedback,
         submitted: true,
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
