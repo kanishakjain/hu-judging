@@ -140,7 +140,7 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
     } finally {
       setBusy(false);
     }
-  }, [roundId, team.id, feedback, scores, goNext, onNext, existingSubmission]);
+  }, [roundId, team.id, feedback, scores, onNext, existingSubmission]);
 
   // Keyboard shortcuts
   useEffect(() => {
