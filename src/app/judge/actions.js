@@ -26,7 +26,7 @@ export async function logInJudge(prevState, formData) {
 export async function logOutJudge() {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/judge/login");
+  redirect("/");
 }
 
 // Basic sanitization

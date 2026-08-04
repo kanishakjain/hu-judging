@@ -25,7 +25,7 @@ export default function LandingClient() {
   return (
     <div className="shell" style={{ overflow: 'hidden' }}>
       {/* Background glow effects */}
-      <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: '80vw', height: '50vh', background: 'radial-gradient(ellipse at top, rgba(57, 255, 136, 0.15), transparent 70%)', pointerEvents: 'none', zIndex: -1 }}></div>
+      <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: '80vw', height: '50vh', background: 'radial-gradient(ellipse at top, rgba(129, 140, 248, 0.15), transparent 70%)', pointerEvents: 'none', zIndex: -1 }}></div>
 
       {/* Navigation */}
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 2rem', maxWidth: 1200, margin: '0 auto', width: '100%' }}>

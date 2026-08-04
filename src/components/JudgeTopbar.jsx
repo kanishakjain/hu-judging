@@ -9,7 +9,7 @@ export default function JudgeTopbar({ judgeName }) {
           <span className="dot" />
           HU Judging
         </Link>
-        {judgeName && <ProfileMenu label={judgeName} loginPath="/judge/login" />}
+        {judgeName && <ProfileMenu label={judgeName} loginPath="/" />}
       </div>
     </div>
   );

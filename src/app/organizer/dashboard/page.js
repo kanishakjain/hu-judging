@@ -14,6 +14,7 @@ export default async function OrganizerDashboard() {
   const { data: hackathons } = await supabase
     .from("hackathons")
     .select("id, name, description, status, created_at")
+    .eq("created_by", userData.user.id)
     .order("created_at", { ascending: false });
 
   return (
