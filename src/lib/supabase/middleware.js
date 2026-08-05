@@ -45,6 +45,17 @@ export async function updateSession(request) {
         url.pathname = '/';
         return NextResponse.redirect(url);
       }
+      
+      const dbSession = user.user_metadata?.current_session;
+      const cookieSession = request.cookies.get('judge_session')?.value;
+      
+      if (dbSession && cookieSession && dbSession !== cookieSession) {
+        url.pathname = '/judge/login';
+        url.searchParams.set('error', 'session_invalidated');
+        const redirectRes = NextResponse.redirect(url);
+        redirectRes.cookies.delete('judge_session');
+        return redirectRes;
+      }
     }
   } else {
     // Basic redirect for unauthenticated users

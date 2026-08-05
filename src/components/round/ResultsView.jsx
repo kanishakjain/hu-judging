@@ -33,6 +33,7 @@ export default function ResultsView({ teams, judges, criteria, assignments, subm
           judgeName: judge?.name || judge?.judge_code || "—",
           teamId: a.team_id,
           teamName: team?.name || "—",
+          teamIdDisplay: team?.project_link || null,
           submitted: !!sub?.submitted,
           total: sub ? submissionTotal(sub) : null,
           feedback: sub?.feedback || "",
@@ -60,7 +61,7 @@ export default function ResultsView({ teams, judges, criteria, assignments, subm
       .map((t) => {
         const totals = byTeam[t.id] || [];
         const finalScore = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null;
-        return { teamId: t.id, teamName: t.name, judgeCount: totals.length, finalScore };
+        return { teamId: t.id, teamName: t.name, teamIdDisplay: t.project_link || null, judgeCount: totals.length, finalScore };
       })
       .sort((a, b) => (b.finalScore ?? -1) - (a.finalScore ?? -1));
   }, [teams, submissions]);
@@ -77,33 +78,40 @@ export default function ResultsView({ teams, judges, criteria, assignments, subm
       </div>
 
       {tab === "overall" && (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Team</th>
-              <th>Judges scored</th>
-              <th>Final score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboard.map((row, i) => (
-              <tr key={row.teamId}>
-                <td><span className="rank">#{i + 1}</span></td>
-                <td>{row.teamName}</td>
-                <td className="muted">{row.judgeCount}</td>
-                <td className="score-big">
-                  {row.finalScore === null ? "—" : `${row.finalScore.toFixed(1)} / ${maxTotal}`}
-                </td>
-              </tr>
-            ))}
-            {!leaderboard.length && (
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan={4} className="empty">No teams in this round yet.</td>
+                <th>Rank</th>
+                <th>Team</th>
+                <th>Judges scored</th>
+                <th>Final score</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {leaderboard.map((row, i) => (
+                <tr key={row.teamId}>
+                  <td><span className="rank">#{i + 1}</span></td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      {row.teamName}
+                      {row.teamIdDisplay && <span className="badge badge-active">ID: {row.teamIdDisplay}</span>}
+                    </div>
+                  </td>
+                  <td className="muted">{row.judgeCount}</td>
+                  <td className="score-big">
+                    {row.finalScore === null ? "—" : `${row.finalScore.toFixed(1)} / ${maxTotal}`}
+                  </td>
+                </tr>
+              ))}
+              {!leaderboard.length && (
+                <tr>
+                  <td colSpan={4} className="empty">No teams in this round yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {tab === "judges" && (
@@ -122,37 +130,44 @@ export default function ResultsView({ teams, judges, criteria, assignments, subm
             </select>
           </div>
 
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Judge</th>
-                <th>Team</th>
-                <th>Status</th>
-                <th>Score</th>
-                <th>Feedback</th>
-              </tr>
-            </thead>
-            <tbody>
-              {judgeRows.map((r, i) => (
-                <tr key={i}>
-                  <td>{r.judgeName}</td>
-                  <td>{r.teamName}</td>
-                  <td>
-                    <span className={`badge ${r.submitted ? "badge-active" : "badge-warn"}`}>
-                      {r.submitted ? "submitted" : "pending"}
-                    </span>
-                  </td>
-                  <td className="mono">{r.total === null ? "—" : `${r.total} / ${maxTotal}`}</td>
-                  <td className="muted" style={{ maxWidth: 280 }}>{r.feedback}</td>
-                </tr>
-              ))}
-              {!judgeRows.length && (
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="empty">No matching rows.</td>
+                  <th>Judge</th>
+                  <th>Team</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>Feedback</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {judgeRows.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.judgeName}</td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        {r.teamName}
+                        {r.teamIdDisplay && <span className="badge badge-active">ID: {r.teamIdDisplay}</span>}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge ${r.submitted ? "badge-active" : "badge-warn"}`}>
+                        {r.submitted ? "submitted" : "pending"}
+                      </span>
+                    </td>
+                    <td className="mono">{r.total === null ? "—" : `${r.total} / ${maxTotal}`}</td>
+                    <td className="muted" style={{ maxWidth: 280 }}>{r.feedback}</td>
+                  </tr>
+                ))}
+                {!judgeRows.length && (
+                  <tr>
+                    <td colSpan={5} className="empty">No matching rows.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

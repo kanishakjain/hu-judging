@@ -32,8 +32,8 @@ export default function TeamsPanel({ hackathonId, teams }) {
               <input className="input" id="team-members" name="members" placeholder="Comma separated" />
             </div>
             <div className="field">
-              <label htmlFor="team-link">Project link</label>
-              <input className="input" id="team-link" name="projectLink" placeholder="https://…" />
+              <label htmlFor="team-link">Team ID / Table Number</label>
+              <input className="input" id="team-link" name="projectLink" placeholder="e.g. T-008 or 42" />
             </div>
             <SubmitButton pendingText="Adding…">Add team</SubmitButton>
           </form>
@@ -46,13 +46,13 @@ export default function TeamsPanel({ hackathonId, teams }) {
       {teams?.map((t) => (
         <div key={t.id} className="list-item">
           <div>
-            <div style={{ fontWeight: 600 }}>{t.name}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+              <div style={{ fontWeight: 600 }}>{t.name}</div>
+              {t.project_link && (
+                <span className="badge badge-active">ID: {t.project_link}</span>
+              )}
+            </div>
             {t.members && <div className="muted" style={{ fontSize: 13 }}>{t.members}</div>}
-            {t.project_link && (
-              <a href={t.project_link} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 12, color: "var(--accent)" }}>
-                {t.project_link}
-              </a>
-            )}
           </div>
           <button className="btn btn-danger btn-sm" onClick={() => deleteTeam(hackathonId, t.id)}>
             Remove

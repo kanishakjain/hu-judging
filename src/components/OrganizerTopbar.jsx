@@ -9,7 +9,7 @@ export default function OrganizerTopbar({ email }) {
           <span className="dot" />
           HU Judging
         </Link>
-        {email && <ProfileMenu label={email} loginPath="/organizer/login" />}
+        {email && <ProfileMenu label={email} loginPath="/" />}
       </div>
     </div>
   );

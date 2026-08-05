@@ -45,7 +45,7 @@ function JudgeRow({ hackathonId, roundId, judge, roundTeams, initialTeamIds }) {
               className={`badge ${active ? "badge-active" : ""}`}
               style={{ cursor: "pointer", background: active ? undefined : "transparent" }}
             >
-              {t.name}
+              {t.name} {t.project_link ? `(ID: ${t.project_link})` : ""}
             </button>
           );
         })}

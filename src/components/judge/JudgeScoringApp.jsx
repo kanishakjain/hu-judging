@@ -75,7 +75,7 @@ export default function JudgeScoringApp({ roundsData }) {
                 className={`team-nav-btn ${isActive ? 'active' : ''}`}
                 onClick={() => setTeamId(t.id)}
               >
-                <span>{t.name}</span>
+                <span>{t.name} {t.project_link ? `(ID: ${t.project_link})` : ""}</span>
                 {isDone && <span className="status-dot done" title="Evaluated"></span>}
               </button>
             );
@@ -169,13 +169,13 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
     <form onSubmit={(e) => handleSubmit(e, false)} className="card animate-in">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
         <div>
-          <h2 className="title" style={{ fontSize: 24, marginBottom: 8 }}>{team.name}</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+            <h2 className="title" style={{ fontSize: 24, margin: 0 }}>{team.name}</h2>
+            {team.project_link && (
+              <span className="badge badge-active" style={{ fontSize: 13 }}>ID: {team.project_link}</span>
+            )}
+          </div>
           {team.members && <p className="muted" style={{ fontSize: 14, marginBottom: 8 }}>{team.members}</p>}
-          {team.project_link && (
-            <a href={team.project_link} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 13, color: "var(--accent-primary)" }}>
-              {team.project_link} ↗
-            </a>
-          )}
         </div>
         {existingSubmission?.submitted && <span className="badge badge-active">submitted — editable</span>}
       </div>

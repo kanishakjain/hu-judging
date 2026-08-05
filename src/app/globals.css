@@ -1,21 +1,22 @@
 :root {
   /* Core Colors */
-  --bg-dark: #030712;
-  --bg-elevated: rgba(17, 24, 39, 0.6);
-  --bg-elevated-hover: rgba(31, 41, 55, 0.8);
+  --bg-dark: #020617; /* Deep Navy */
+  --bg-elevated: rgba(15, 23, 42, 0.6); /* Slate/Navy */
+  --bg-elevated-hover: rgba(30, 41, 59, 0.8);
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-focus: rgba(255, 255, 255, 0.2);
   
   /* Text */
-  --text-primary: #F3F4F6;
-  --text-secondary: #9CA3AF;
-  --text-muted: #6B7280;
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
   
-  /* Accents (Electric Indigo) */
-  --accent-primary: #818cf8;
-  --accent-hover: #6366f1;
-  --accent-dim: rgba(129, 140, 248, 0.2);
-  --accent-soft: rgba(129, 140, 248, 0.1);
+  /* Accents (Electric Blue/Cyan) */
+  --accent-primary: #06B6D4; /* Cyan */
+  --accent-hover: #0891B2; 
+  --accent-dim: rgba(6, 182, 212, 0.2);
+  --accent-soft: rgba(6, 182, 212, 0.1);
+  --accent-gradient: linear-gradient(135deg, #0EA5E9, #14B8A6); /* Electric Blue to Teal */
   
   /* Status Colors */
   --danger: #EF4444;
@@ -37,7 +38,7 @@
   --radius-full: 9999px;
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
-  --shadow-glow: 0 0 20px rgba(129, 140, 248, 0.15);
+  --shadow-glow: 0 0 20px rgba(6, 182, 212, 0.15);
 }
 
 /* CSS Reset & Base */
@@ -68,8 +69,8 @@ body::before {
   width: 100vw;
   height: 100vh;
   background: 
-    radial-gradient(circle at 15% 0%, rgba(57, 255, 136, 0.03) 0%, transparent 40%),
-    radial-gradient(circle at 85% 100%, rgba(57, 255, 136, 0.02) 0%, transparent 40%);
+    radial-gradient(circle at 15% 0%, rgba(6, 182, 212, 0.03) 0%, transparent 40%),
+    radial-gradient(circle at 85% 100%, rgba(20, 184, 166, 0.02) 0%, transparent 40%);
   pointer-events: none;
   z-index: -1;
 }
@@ -143,14 +144,22 @@ button, input, textarea, select {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem 1.5rem 6rem;
+  padding: 1rem 1rem 6rem;
+}
+
+@media (min-width: 768px) {
+  .page { padding: 2rem 1.5rem 6rem; }
 }
 
 .page-narrow {
   width: 100%;
   max-width: 500px;
   margin: 0 auto;
-  padding: 4rem 1.5rem;
+  padding: 2rem 1rem;
+}
+
+@media (min-width: 768px) {
+  .page-narrow { padding: 4rem 1.5rem; }
 }
 
 /* Responsive Grid/Flex helpers */
@@ -315,6 +324,7 @@ button, input, textarea, select {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  min-height: 44px; /* Touch target size */
 }
 
 .btn:active { transform: scale(0.97); }
@@ -340,7 +350,7 @@ button, input, textarea, select {
 
 .btn-accent:hover {
   background: var(--accent-hover);
-  box-shadow: 0 0 25px rgba(129, 140, 248, 0.4);
+  box-shadow: 0 0 25px rgba(6, 182, 212, 0.4);
 }
 
 .btn-secondary {
@@ -587,7 +597,7 @@ table.data-table {
   border-color: var(--accent-primary);
   color: #000;
   font-weight: 600;
-  box-shadow: 0 0 15px rgba(57, 255, 136, 0.3);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
   transform: scale(1.05);
 }
 

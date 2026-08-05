@@ -19,6 +19,16 @@ export async function logInJudge(prevState, formData) {
   });
 
   if (error) return { error: "Invalid judge ID or password." };
+  
+  const sessionId = crypto.randomUUID();
+  
+  // Save session ID to user_metadata
+  await supabase.auth.updateUser({
+    data: { current_session: sessionId }
+  });
+  
+  const { cookies } = await import("next/headers");
+  cookies().set('judge_session', sessionId, { httpOnly: true, secure: process.env.NODE_ENV === 'production', path: '/' });
 
   redirect("/judge/dashboard");
 }
@@ -26,6 +36,10 @@ export async function logInJudge(prevState, formData) {
 export async function logOutJudge() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  
+  const { cookies } = await import("next/headers");
+  cookies().delete('judge_session');
+  
   redirect("/");
 }
 

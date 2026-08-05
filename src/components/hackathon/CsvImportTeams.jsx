@@ -44,7 +44,7 @@ export default function CsvImportTeams({ hackathonId }) {
         <input type="file" accept=".csv" onChange={handleFile} disabled={busy} style={{ display: "none" }} />
       </label>
       <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-        Headers: name, members, projectLink
+        Headers: name, members, projectLink (use for Team ID / Table Number)
       </p>
       {status?.error && <div className="alert alert-error" style={{ marginTop: 8 }}>{status.error}</div>}
       {status?.success && <div className="alert alert-success" style={{ marginTop: 8 }}>{status.success}</div>}
