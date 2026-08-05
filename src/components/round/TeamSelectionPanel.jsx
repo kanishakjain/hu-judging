@@ -9,6 +9,12 @@ export default function TeamSelectionPanel({ hackathonId, roundId, allTeams, sel
   const [status, setStatus] = useState(null);
   const [topN, setTopN] = useState(15);
   const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredTeams = allTeams?.filter((t) => {
+    const term = search.toLowerCase();
+    return t.name.toLowerCase().includes(term) || (t.team_code && t.team_code.toLowerCase().includes(term));
+  }) || [];
 
   function toggle(id) {
     setSelected((prev) => {
@@ -40,7 +46,10 @@ export default function TeamSelectionPanel({ hackathonId, roundId, allTeams, sel
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <h2 className="subtitle">Teams in this round</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+        <h2 className="subtitle" style={{ margin: 0 }}>Teams in this round</h2>
+        <span className="badge badge-active">{selected.size} / {allTeams?.length || 0} selected</span>
+      </div>
 
       {previousRoundId && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
@@ -64,14 +73,34 @@ export default function TeamSelectionPanel({ hackathonId, roundId, allTeams, sel
 
       {!allTeams?.length && <div className="empty">No teams in this hackathon yet.</div>}
 
-      <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 16 }}>
-        {allTeams?.map((t) => (
-          <label key={t.id} className="list-item" style={{ cursor: "pointer" }}>
-            <span>{t.name} {t.team_code ? `(ID: ${t.team_code})` : ""}</span>
-            <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggle(t.id)} />
-          </label>
-        ))}
-      </div>
+      {allTeams?.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <input 
+              type="text" 
+              className="input" 
+              placeholder="Search teams by name or ID..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button className="btn btn-secondary btn-sm" onClick={() => setSelected(new Set(allTeams.map(t => t.id)))}>Select All</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
+          </div>
+          
+          <div style={{ maxHeight: 320, overflowY: "auto", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", padding: "0 8px" }}>
+            {filteredTeams.map((t) => (
+              <label key={t.id} className="list-item" style={{ cursor: "pointer", padding: "8px 4px" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {t.name} {t.team_code && <span className="badge">ID: {t.team_code}</span>}
+                </span>
+                <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggle(t.id)} />
+              </label>
+            ))}
+            {filteredTeams.length === 0 && <div className="muted text-center" style={{ padding: "16px 0" }}>No teams match your search.</div>}
+          </div>
+        </div>
+      )}
 
       <button className="btn btn-primary" onClick={save} disabled={busy}>
         {busy ? "Saving…" : "Save team list"}

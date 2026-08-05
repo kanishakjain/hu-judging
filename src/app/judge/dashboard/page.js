@@ -11,7 +11,7 @@ export default async function JudgeDashboardPage() {
 
   const { data: judge } = await supabase
     .from("judges")
-    .select("id, name, judge_code, hackathon_id")
+    .select("id, name, judge_code, hackathon_id, company")
     .eq("auth_user_id", userData.user.id)
     .single();
 
@@ -59,7 +59,7 @@ export default async function JudgeDashboardPage() {
 
   return (
     <div className="shell">
-      <JudgeTopbar judgeName={judge.name || judge.judge_code} />
+      <JudgeTopbar judgeName={judge.name || judge.judge_code} company={judge.company} />
       <div className="page">
         <TerminalPath user={judge.judge_code} segments={[hackathon?.name || "hackathon", "scoring"]} />
         <h1 className="title" style={{ marginBottom: 24 }}>

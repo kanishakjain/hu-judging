@@ -4,13 +4,54 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { submitScore } from "@/app/judge/actions";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function JudgeScoringApp({ roundsData }) {
+  const router = useRouter();
+  
+  // Auto-refresh assignments every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [router]);
+
   const activeRounds = roundsData.filter((r) => r.round.status !== "completed");
   const list = activeRounds.length ? activeRounds : roundsData;
 
-  const [roundIndex, setRoundIndex] = useState(0);
-  const [teamId, setTeamId] = useState(list[0]?.teams[0]?.id || "");
+  // Smart Routing: Find earliest round with unfinished teams
+  const initialRoundIndex = useMemo(() => {
+    if (!list.length) return 0;
+    const idx = list.findIndex(r => {
+      return r.teams.some(t => {
+        const sub = r.submissions.find(s => s.team_id === t.id);
+        return !sub?.submitted;
+      });
+    });
+    return idx !== -1 ? idx : 0;
+  }, [list]);
+
+  const [roundIndex, setRoundIndex] = useState(initialRoundIndex);
+  
+  // Determine initial team id for the selected round
+  const initialTeamId = useMemo(() => {
+    if (!list[roundIndex]?.teams?.length) return "";
+    const firstUnfinished = list[roundIndex].teams.find(t => {
+      const sub = list[roundIndex].submissions.find(s => s.team_id === t.id);
+      return !sub?.submitted;
+    });
+    return firstUnfinished ? firstUnfinished.id : list[roundIndex].teams[0].id;
+  }, [list, roundIndex]);
+
+  const [teamId, setTeamId] = useState(initialTeamId);
+
+  // Sync teamId if round changes
+  useEffect(() => {
+    if (list[roundIndex]?.teams?.length && !list[roundIndex].teams.find(t => t.id === teamId)) {
+      setTeamId(list[roundIndex].teams[0].id);
+    }
+  }, [roundIndex, list, teamId]);
 
   const current = list[roundIndex];
 
@@ -20,7 +61,6 @@ export default function JudgeScoringApp({ roundsData }) {
 
   function handleRoundChange(index) {
     setRoundIndex(index);
-    setTeamId(list[index]?.teams[0]?.id || "");
   }
 
   function handleNextTeam() {
@@ -82,7 +122,7 @@ export default function JudgeScoringApp({ roundsData }) {
           })}
         </div>
 
-        <div className="scoring-main">
+        <div className="scoring-main" style={{ position: "relative" }}>
           {selectedTeam ? (
             <ScoreForm
               key={`${current.round.id}-${teamId}`}
@@ -115,32 +155,50 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
   const [scores, setScores] = useState(initialScores);
   const [feedback, setFeedback] = useState(existingSubmission?.feedback || "");
   const [busy, setBusy] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState("");
 
   const total = criteria.reduce((sum, c) => sum + (Number(scores[c.id]) || 0), 0);
   const maxTotal = criteria.reduce((sum, c) => sum + Number(c.max_score), 0);
 
-  const handleSubmit = useCallback(async (e, goNext = false) => {
+  const handleSubmit = useCallback(async (e, goNext = false, silent = false) => {
     if (e && e.preventDefault) e.preventDefault();
-    setBusy(true);
+    if (!silent) setBusy(true);
+    if (silent) setAutoSaveStatus("Saving...");
     
     const promise = submitScore({ roundId, teamId: team.id, feedback, scores });
     
-    toast.promise(promise, {
-      loading: 'Saving scores...',
-      success: (res) => {
-        if (res.error) throw new Error(res.error);
-        if (goNext && onNext) onNext();
-        return existingSubmission?.submitted ? "Scores updated successfully!" : "Scores submitted successfully!";
-      },
-      error: (err) => err.message || 'Failed to save scores'
-    });
+    if (!silent) {
+      toast.promise(promise, {
+        loading: 'Saving scores...',
+        success: (res) => {
+          if (res.error) throw new Error(res.error);
+          if (goNext && onNext) onNext();
+          return existingSubmission?.submitted ? "Scores updated successfully!" : "Scores submitted successfully!";
+        },
+        error: (err) => err.message || 'Failed to save scores'
+      });
+    }
 
     try {
-      await promise;
+      const res = await promise;
+      if (silent && !res.error) setAutoSaveStatus("Saved");
     } finally {
-      setBusy(false);
+      if (!silent) setBusy(false);
     }
   }, [roundId, team.id, feedback, scores, onNext, existingSubmission]);
+
+  // Auto-Save effect
+  useEffect(() => {
+    // Only auto-save if something actually changed from initial state
+    const changed = Object.keys(scores).some(k => scores[k] !== initialScores[k]) || feedback !== (existingSubmission?.feedback || "");
+    if (!changed) return;
+
+    const timer = setTimeout(() => {
+      handleSubmit(null, false, true);
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, [scores, feedback, initialScores, existingSubmission, handleSubmit]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -166,7 +224,7 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
   }
 
   return (
-    <form onSubmit={(e) => handleSubmit(e, false)} className="card animate-in">
+    <form onSubmit={(e) => handleSubmit(e, false)} className="card animate-in" style={{ paddingBottom: 80, minHeight: "100%" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
@@ -177,7 +235,10 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
           </div>
           {team.members && <p className="muted" style={{ fontSize: 14, marginBottom: 8 }}>{team.members}</p>}
         </div>
-        {existingSubmission?.submitted && <span className="badge badge-active">submitted — editable</span>}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+          {existingSubmission?.submitted && <span className="badge badge-active">submitted</span>}
+          {autoSaveStatus && <span className="muted text-xs mono">{autoSaveStatus}</span>}
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 24, marginBottom: 24 }}>
@@ -188,17 +249,20 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
           return (
             <div key={c.id}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <label className="eyebrow" style={{ margin: 0 }}>{c.name}</label>
-                <span className="mono muted" style={{ fontSize: 12 }}>Score: {scores[c.id] || 0} / {c.max_score}</span>
+                <label className="eyebrow" style={{ margin: 0, fontSize: 13 }}>{c.name}</label>
+                <span className="mono muted" style={{ fontSize: 14, color: "var(--accent-primary)" }}>
+                  {scores[c.id] !== "" ? scores[c.id] : "-"} / {c.max_score}
+                </span>
               </div>
               
-              <div className="bubbles">
+              <div className="bubbles" style={{ gap: "8px" }}>
                 {bubbleOptions.map(val => (
                   <button
                     key={val}
                     type="button"
                     className={`bubble-btn ${Number(scores[c.id]) === val && scores[c.id] !== "" ? 'active' : ''}`}
                     onClick={() => setScores((prev) => ({ ...prev, [c.id]: val }))}
+                    style={{ width: "3.5rem", height: "3.5rem", fontSize: "1.125rem" }} // Larger targets
                   >
                     {val}
                   </button>
@@ -210,40 +274,41 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
       </div>
 
       <div className="field">
-        <label htmlFor="feedback" className="eyebrow">Feedback (Optional)</label>
+        <label htmlFor="feedback" className="eyebrow" style={{ fontSize: 13 }}>Feedback (Optional)</label>
         <textarea
           id="feedback"
           className="textarea"
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           placeholder="What stood out, what could improve…"
-          style={{ minHeight: 120 }}
+          style={{ minHeight: 140, fontSize: 16 }}
         />
       </div>
 
-      <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 24, marginTop: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <span className="score-big">Total: {total} / {maxTotal}</span>
-        </div>
-        
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn btn-secondary" onClick={onPrev} disabled={!onPrev || busy}>
-              <ChevronLeft size={16} /> Prev
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={(e) => handleSubmit(e, false)} disabled={busy} title="Cmd+S to save">
-              <Save size={16} /> {busy ? "Saving…" : "Save"}
-            </button>
+      <div className="sticky-action-bar">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <span className="score-big" style={{ fontSize: "1.5rem" }}>{total} / {maxTotal}</span>
           </div>
           
-          <button 
-            type="button" 
-            className="btn btn-primary" 
-            onClick={(e) => handleSubmit(e, true)} 
-            disabled={busy}
-          >
-            {busy ? "Saving…" : (onNext ? "Save & Next" : "Save (Done)")} {onNext && <ChevronRight size={16} />}
-          </button>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button type="button" className="btn btn-secondary" onClick={onPrev} disabled={!onPrev || busy}>
+              <ChevronLeft size={20} /> <span className="hide-mobile">Prev</span>
+            </button>
+            <button type="button" className="btn btn-secondary hide-mobile" onClick={(e) => handleSubmit(e, false)} disabled={busy} title="Cmd+S to save">
+              <Save size={18} /> {busy ? "Saving…" : "Save"}
+            </button>
+            
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              onClick={(e) => handleSubmit(e, true)} 
+              disabled={busy}
+              style={{ minWidth: 120 }}
+            >
+              {busy ? "Saving…" : (onNext ? "Save & Next" : "Save (Done)")} {onNext && <ChevronRight size={20} />}
+            </button>
+          </div>
         </div>
       </div>
     </form>
