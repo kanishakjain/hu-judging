@@ -38,23 +38,31 @@ export default async function JudgeDashboardPage() {
       .in("id", roundIds)
       .order("order_index");
 
-    roundsData = await Promise.all(
-      (rounds || []).map(async (round) => {
-        const teamIds = assignmentRows.filter((a) => a.round_id === round.id).map((a) => a.team_id);
+    // Extract all unique team IDs assigned to this judge
+    const allAssignedTeamIds = [...new Set(assignmentRows.map(a => a.team_id))];
 
-        const [{ data: teams }, { data: criteria }, { data: submissions }] = await Promise.all([
-          supabase.from("teams").select("id, name, members, team_code").in("id", teamIds),
-          supabase.from("criteria").select("id, name, max_score").eq("round_id", round.id).order("order_index"),
-          supabase
-            .from("submissions")
-            .select("team_id, feedback, submitted, score_details(criterion_id, value)")
-            .eq("round_id", round.id)
-            .eq("judge_id", judge.id),
-        ]);
+    // Batch fetch ALL necessary data in 3 parallel queries instead of 3 queries PER round
+    const [{ data: allTeams }, { data: allCriteria }, { data: allSubmissions }] = await Promise.all([
+      supabase.from("teams").select("id, name, members, team_code, hackathon_id").in("id", allAssignedTeamIds),
+      supabase.from("criteria").select("id, name, max_score, round_id").in("round_id", roundIds).order("order_index"),
+      supabase
+        .from("submissions")
+        .select("team_id, feedback, submitted, round_id, score_details(criterion_id, value)")
+        .in("round_id", roundIds)
+        .eq("judge_id", judge.id),
+    ]);
 
-        return { round, teams: teams || [], criteria: criteria || [], submissions: submissions || [] };
-      })
-    );
+    // Group the global data by round
+    roundsData = (rounds || []).map((round) => {
+      const teamIdsForRound = assignmentRows.filter((a) => a.round_id === round.id).map((a) => a.team_id);
+      
+      return { 
+        round, 
+        teams: (allTeams || []).filter(t => teamIdsForRound.includes(t.id)), 
+        criteria: (allCriteria || []).filter(c => c.round_id === round.id), 
+        submissions: (allSubmissions || []).filter(s => s.round_id === round.id)
+      };
+    });
   }
 
   return (
