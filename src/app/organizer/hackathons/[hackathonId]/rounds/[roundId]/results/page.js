@@ -19,7 +19,7 @@ export default async function RoundResultsPage({ params }) {
   const [{ data: roundTeamRows }, { data: allTeams }, { data: judges }, { data: criteria }, { data: assignments }, { data: submissions }] =
     await Promise.all([
       supabase.from("round_teams").select("team_id").eq("round_id", roundId),
-      supabase.from("teams").select("id, name, project_link").eq("hackathon_id", hackathonId),
+      supabase.from("teams").select("id, name, team_code").eq("hackathon_id", hackathonId),
       supabase.from("judges").select("id, name, judge_code").eq("hackathon_id", hackathonId),
       supabase.from("criteria").select("id, name, max_score").eq("round_id", roundId),
       supabase.from("round_judge_assignments").select("judge_id, team_id").eq("round_id", roundId),

@@ -43,7 +43,7 @@ export default async function JudgeDashboardPage() {
         const teamIds = assignmentRows.filter((a) => a.round_id === round.id).map((a) => a.team_id);
 
         const [{ data: teams }, { data: criteria }, { data: submissions }] = await Promise.all([
-          supabase.from("teams").select("id, name, members, project_link").in("id", teamIds),
+          supabase.from("teams").select("id, name, members, team_code").in("id", teamIds),
           supabase.from("criteria").select("id, name, max_score").eq("round_id", round.id).order("order_index"),
           supabase
             .from("submissions")

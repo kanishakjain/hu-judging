@@ -33,7 +33,7 @@ export default function TeamsPanel({ hackathonId, teams }) {
             </div>
             <div className="field">
               <label htmlFor="team-link">Team ID / Table Number</label>
-              <input className="input" id="team-link" name="projectLink" placeholder="e.g. T-008 or 42" />
+              <input className="input" id="team-link" name="teamCode" placeholder="e.g. T-008 or 42" />
             </div>
             <SubmitButton pendingText="Adding…">Add team</SubmitButton>
           </form>
@@ -48,8 +48,8 @@ export default function TeamsPanel({ hackathonId, teams }) {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
               <div style={{ fontWeight: 600 }}>{t.name}</div>
-              {t.project_link && (
-                <span className="badge badge-active">ID: {t.project_link}</span>
+              {t.team_code && (
+                <span className="badge badge-active">ID: {t.team_code}</span>
               )}
             </div>
             {t.members && <div className="muted" style={{ fontSize: 13 }}>{t.members}</div>}

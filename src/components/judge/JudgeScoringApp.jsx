@@ -75,7 +75,7 @@ export default function JudgeScoringApp({ roundsData }) {
                 className={`team-nav-btn ${isActive ? 'active' : ''}`}
                 onClick={() => setTeamId(t.id)}
               >
-                <span>{t.name} {t.project_link ? `(ID: ${t.project_link})` : ""}</span>
+                <span>{t.name} {t.team_code ? `(ID: ${t.team_code})` : ""}</span>
                 {isDone && <span className="status-dot done" title="Evaluated"></span>}
               </button>
             );
@@ -171,8 +171,8 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
             <h2 className="title" style={{ fontSize: 24, margin: 0 }}>{team.name}</h2>
-            {team.project_link && (
-              <span className="badge badge-active" style={{ fontSize: 13 }}>ID: {team.project_link}</span>
+            {team.team_code && (
+              <span className="badge badge-active" style={{ fontSize: 13 }}>ID: {team.team_code}</span>
             )}
           </div>
           {team.members && <p className="muted" style={{ fontSize: 14, marginBottom: 8 }}>{team.members}</p>}

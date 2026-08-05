@@ -4,7 +4,7 @@ import { useState } from "react";
 import Papa from "papaparse";
 import { importTeamsCSV } from "@/app/organizer/hackathons/actions";
 
-// Expects a CSV with headers: name, members, projectLink
+// Expects a CSV with headers: name, members, teamId
 export default function CsvImportTeams({ hackathonId }) {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -23,7 +23,7 @@ export default function CsvImportTeams({ hackathonId }) {
         const rows = results.data.map((r) => ({
           name: r.name?.trim(),
           members: r.members?.trim(),
-          projectLink: r.projectLink?.trim(),
+          teamCode: r.teamId?.trim(),
         }));
         const res = await importTeamsCSV(hackathonId, rows);
         setBusy(false);
@@ -44,7 +44,7 @@ export default function CsvImportTeams({ hackathonId }) {
         <input type="file" accept=".csv" onChange={handleFile} disabled={busy} style={{ display: "none" }} />
       </label>
       <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-        Headers: name, members, projectLink (use for Team ID / Table Number)
+        Headers: name, members, teamId (use for Team ID / Table Number)
       </p>
       {status?.error && <div className="alert alert-error" style={{ marginTop: 8 }}>{status.error}</div>}
       {status?.success && <div className="alert alert-success" style={{ marginTop: 8 }}>{status.success}</div>}

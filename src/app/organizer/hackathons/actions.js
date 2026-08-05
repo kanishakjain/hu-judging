@@ -58,7 +58,7 @@ export async function setHackathonStatus(hackathonId, status) {
 export async function addTeam(hackathonId, formData) {
   const name = sanitize(formData.get("name")?.toString().trim());
   const members = sanitize(formData.get("members")?.toString().trim());
-  const projectLink = sanitize(formData.get("projectLink")?.toString().trim());
+  const teamCode = sanitize(formData.get("teamCode")?.toString().trim());
 
   if (!name) return { error: "Team name is required." };
 
@@ -71,7 +71,7 @@ export async function addTeam(hackathonId, formData) {
 
   const { error } = await supabase
     .from("teams")
-    .insert({ hackathon_id: hackathonId, name, members, project_link: projectLink });
+    .insert({ hackathon_id: hackathonId, name, members, team_code: teamCode });
 
   if (error) return { error: error.message };
   revalidatePath(`/organizer/hackathons/${hackathonId}`);
@@ -94,7 +94,7 @@ export async function importTeamsCSV(hackathonId, rows) {
       hackathon_id: hackathonId,
       name: sanitize(r.name.trim()),
       members: sanitize(r.members || ""),
-      project_link: sanitize(r.projectLink || ""),
+      team_code: sanitize(r.teamCode || ""),
     }));
 
   if (payload.length === 0) return { error: "No valid rows found." };
@@ -122,6 +122,8 @@ export async function deleteTeam(hackathonId, teamId) {
 // ── Judges ──────────────────────────────────────────────────
 export async function addJudge(hackathonId, formData) {
   const name = sanitize(formData.get("name")?.toString().trim());
+  const company = sanitize(formData.get("company")?.toString().trim());
+  const designation = sanitize(formData.get("designation")?.toString().trim());
   const judgeCode = sanitize(formData.get("judgeCode")?.toString().trim());
   const password = formData.get("password")?.toString().trim();
 
@@ -153,6 +155,8 @@ export async function addJudge(hackathonId, formData) {
     password,
     auth_user_id: authUser.user.id,
     name,
+    company,
+    designation,
   });
 
   if (error) {
@@ -162,6 +166,73 @@ export async function addJudge(hackathonId, formData) {
 
   revalidatePath(`/organizer/hackathons/${hackathonId}`);
   return { error: null };
+}
+
+export async function importJudgesCSV(hackathonId, rows) {
+  if (!rows?.length) return { error: "No rows to import." };
+
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: "Unauthorized" };
+
+  const { data: hackathon } = await supabase.from("hackathons").select("created_by").eq("id", hackathonId).single();
+  if (hackathon?.created_by !== userData.user.id) return { error: "Forbidden" };
+
+  const admin = createAdminClient();
+  const validRows = rows.filter((r) => r.name?.trim() && r.judgeCode?.trim() && r.password?.trim() && r.password.trim().length >= 6);
+
+  if (validRows.length === 0) return { error: "No valid rows found. Ensure Name, Judge ID, and Password (min 6 chars) are provided." };
+
+  let count = 0;
+  let errors = [];
+
+  for (const r of validRows) {
+    const name = sanitize(r.name.trim());
+    const judgeCode = sanitize(r.judgeCode.trim());
+    const password = r.password.trim();
+    const company = sanitize(r.company?.trim() || "");
+    const designation = sanitize(r.designation?.trim() || "");
+    const email = judgeEmail(judgeCode);
+
+    const { data: authUser, error: authError } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { role: "judge", judge_code: judgeCode },
+    });
+
+    if (authError) {
+      errors.push(`Failed for ${name}: ${authError.message}`);
+      continue;
+    }
+
+    const { error: dbError } = await supabase.from("judges").insert({
+      hackathon_id: hackathonId,
+      judge_code: judgeCode,
+      password,
+      auth_user_id: authUser.user.id,
+      name,
+      company,
+      designation,
+    });
+
+    if (dbError) {
+      await admin.auth.admin.deleteUser(authUser.user.id);
+      errors.push(`Failed for ${name}: ${dbError.message}`);
+      continue;
+    }
+
+    count++;
+  }
+
+  revalidatePath(`/organizer/hackathons/${hackathonId}`);
+  
+  if (count === 0) {
+    return { error: errors.join(" | ") || "Import failed." };
+  } else if (errors.length > 0) {
+    return { error: `Imported ${count} judges, but had errors: ${errors.join(" | ")}` };
+  }
+  return { error: null, count };
 }
 
 export async function deleteJudge(hackathonId, judgeId, authUserId) {

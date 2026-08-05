@@ -67,7 +67,7 @@ export default function TeamSelectionPanel({ hackathonId, roundId, allTeams, sel
       <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 16 }}>
         {allTeams?.map((t) => (
           <label key={t.id} className="list-item" style={{ cursor: "pointer" }}>
-            <span>{t.name} {t.project_link ? `(ID: ${t.project_link})` : ""}</span>
+            <span>{t.name} {t.team_code ? `(ID: ${t.team_code})` : ""}</span>
             <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggle(t.id)} />
           </label>
         ))}

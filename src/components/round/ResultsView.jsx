@@ -33,7 +33,7 @@ export default function ResultsView({ teams, judges, criteria, assignments, subm
           judgeName: judge?.name || judge?.judge_code || "—",
           teamId: a.team_id,
           teamName: team?.name || "—",
-          teamIdDisplay: team?.project_link || null,
+          teamIdDisplay: team?.team_code || null,
           submitted: !!sub?.submitted,
           total: sub ? submissionTotal(sub) : null,
           feedback: sub?.feedback || "",
@@ -61,7 +61,7 @@ export default function ResultsView({ teams, judges, criteria, assignments, subm
       .map((t) => {
         const totals = byTeam[t.id] || [];
         const finalScore = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null;
-        return { teamId: t.id, teamName: t.name, teamIdDisplay: t.project_link || null, judgeCount: totals.length, finalScore };
+        return { teamId: t.id, teamName: t.name, teamIdDisplay: t.team_code || null, judgeCount: totals.length, finalScore };
       })
       .sort((a, b) => (b.finalScore ?? -1) - (a.finalScore ?? -1));
   }, [teams, submissions]);

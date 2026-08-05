@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { addJudge, deleteJudge } from "@/app/organizer/hackathons/actions";
 import SubmitButton from "@/components/SubmitButton";
+import CsvImportJudges from "./CsvImportJudges";
 
 function randomCode() {
   return "J-" + Math.random().toString(36).slice(2, 7).toUpperCase();
@@ -30,11 +31,22 @@ export default function JudgesPanel({ hackathonId, judges }) {
   return (
     <div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <form id="add-judge-form" action={handleAdd}>
-          {error && <div className="alert alert-error">{error}</div>}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+          <form id="add-judge-form" action={handleAdd} style={{ flex: 1, minWidth: 240 }}>
+            {error && <div className="alert alert-error">{error}</div>}
           <div className="field">
             <label htmlFor="judge-name">Name</label>
             <input className="input" id="judge-name" name="name" required />
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div className="field" style={{ flex: 1 }}>
+              <label htmlFor="judge-company">Company (Optional)</label>
+              <input className="input" id="judge-company" name="company" />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label htmlFor="judge-designation">Designation (Optional)</label>
+              <input className="input" id="judge-designation" name="designation" />
+            </div>
           </div>
           <div style={{ display: "flex", gap: 12 }}>
             <div className="field" style={{ flex: 1 }}>
@@ -49,8 +61,10 @@ export default function JudgesPanel({ hackathonId, judges }) {
           <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
             Auto-generated — edit if you&apos;d rather set your own. Share these with the judge.
           </p>
-          <SubmitButton pendingText="Adding…">Add judge</SubmitButton>
-        </form>
+            <SubmitButton pendingText="Adding…">Add judge</SubmitButton>
+          </form>
+          <CsvImportJudges hackathonId={hackathonId} />
+        </div>
       </div>
 
       {!judges?.length && <div className="empty">No judges yet.</div>}
@@ -58,7 +72,11 @@ export default function JudgesPanel({ hackathonId, judges }) {
       {judges?.map((j) => (
         <div key={j.id} className="list-item">
           <div>
-            <div style={{ fontWeight: 600 }}>{j.name || "Unnamed judge"}</div>
+            <div style={{ fontWeight: 600 }}>
+              {j.name || "Unnamed judge"}
+              {j.company && <span className="muted" style={{ fontWeight: 400, marginLeft: 8 }}>{j.company}</span>}
+              {j.designation && <span className="muted" style={{ fontWeight: 400, marginLeft: 4 }}>- {j.designation}</span>}
+            </div>
             <div className="mono muted" style={{ fontSize: 12 }}>
               ID: {j.judge_code} · Password: {j.password}
             </div>

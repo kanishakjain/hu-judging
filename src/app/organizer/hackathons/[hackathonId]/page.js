@@ -41,13 +41,6 @@ export default async function HackathonDetailPage({ params }) {
             {hackathon.description && <p className="muted">{hackathon.description}</p>}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {["draft", "active", "completed"].map((s) => (
-              <form key={s} action={async () => { "use server"; await setHackathonStatus(hackathonId, s); }}>
-                <button className={`btn btn-sm ${hackathon.status === s ? "btn-primary" : "btn-secondary"}`}>
-                  {s}
-                </button>
-              </form>
-            ))}
           </div>
         </div>
 
