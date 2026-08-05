@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 
 export default function TerminalPath({ user = "guest", segments = [] }) {
   // Map segments to potential links
@@ -10,23 +11,29 @@ export default function TerminalPath({ user = "guest", segments = [] }) {
   };
 
   return (
-    <div className="terminal-path">
-      <span className="prompt">{user}@hu:~$</span>
+    <div className="breadcrumb-nav">
+      <span className="segment">
+        <Link href={user === "organizer" ? "/organizer/dashboard" : "/judge/dashboard"} style={{ textDecoration: 'none', color: 'inherit' }}>
+          Home
+        </Link>
+      </span>
       {segments.map((segment, i) => {
         const href = getHref(segment, i);
         return (
-          <span className="segment" key={i}>
-            {href ? (
-              <Link href={href} style={{ textDecoration: 'none', color: 'inherit' }} className="hover-link">
-                {segment}
-              </Link>
-            ) : (
-              segment
-            )}
+          <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            <ChevronRight size={14} className="breadcrumb-separator" />
+            <span className="segment">
+              {href ? (
+                <Link href={href} style={{ textDecoration: 'none', color: 'inherit' }} className="hover-link">
+                  {segment}
+                </Link>
+              ) : (
+                segment
+              )}
+            </span>
           </span>
         );
       })}
-      <span className="terminal-cursor" aria-hidden="true" />
     </div>
   );
 }
