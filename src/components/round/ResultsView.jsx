@@ -1,15 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 
 function submissionTotal(sub) {
   return (sub.score_details || []).reduce((sum, s) => sum + Number(s.value), 0);
 }
 
 export default function ResultsView({ teams, judges, criteria, assignments, submissions }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [tab, setTab] = useState("overall");
   const [judgeFilter, setJudgeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [expandedTeam, setExpandedTeam] = useState(null);
 
   const maxTotal = useMemo(() => criteria.reduce((sum, c) => sum + Number(c.max_score), 0), [criteria]);
 
@@ -49,68 +54,127 @@ export default function ResultsView({ teams, judges, criteria, assignments, subm
 
   // ── Overall leaderboard: aggregate submitted scores per team ──
   const leaderboard = useMemo(() => {
-    const byTeam = {};
-    submissions
-      .filter((s) => s.submitted)
-      .forEach((s) => {
-        if (!byTeam[s.team_id]) byTeam[s.team_id] = [];
-        byTeam[s.team_id].push(submissionTotal(s));
-      });
-
     return teams
       .map((t) => {
-        const totals = byTeam[t.id] || [];
-        const finalScore = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null;
-        return { teamId: t.id, teamName: t.name, teamIdDisplay: t.team_code || null, judgeCount: totals.length, finalScore };
+        const teamSubs = submissions.filter((s) => s.submitted && s.team_id === t.id);
+        const judgeCount = teamSubs.length;
+        
+        // Calculate average per criterion
+        const criterionAverages = criteria.map(c => {
+          let sum = 0;
+          let count = 0;
+          const judgeScores = [];
+          
+          teamSubs.forEach(sub => {
+            const detail = sub.score_details?.find(d => d.criterion_id === c.id);
+            const val = detail ? Number(detail.value) : 0;
+            const judgeName = judges.find(j => j.id === sub.judge_id)?.name || "Unknown";
+            judgeScores.push({ judgeName, score: val });
+            sum += val;
+            count++;
+          });
+          
+          return {
+            criterionId: c.id,
+            name: c.name,
+            maxScore: c.max_score,
+            average: count ? sum / count : 0,
+            judgeScores
+          };
+        });
+        
+        const finalScore = judgeCount ? criterionAverages.reduce((acc, curr) => acc + curr.average, 0) : null;
+        
+        return { teamId: t.id, teamName: t.name, teamIdDisplay: t.team_code || null, judgeCount, finalScore, criterionAverages };
       })
       .sort((a, b) => (b.finalScore ?? -1) - (a.finalScore ?? -1));
-  }, [teams, submissions]);
+  }, [teams, submissions, criteria, judges]);
+
+  const handleRefresh = () => {
+    startTransition(() => {
+      router.refresh();
+    });
+  };
 
   return (
     <div>
-      <div className="tabs">
-        <button className={`tab ${tab === "overall" ? "active" : ""}`} onClick={() => setTab("overall")}>
-          overall leaderboard
-        </button>
-        <button className={`tab ${tab === "judges" ? "active" : ""}`} onClick={() => setTab("judges")}>
-          judge view
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", borderBottom: "1px solid var(--border-subtle)" }}>
+        <div className="tabs" style={{ borderBottom: "none", margin: 0 }}>
+          <button className={`tab ${tab === "overall" ? "active" : ""}`} onClick={() => setTab("overall")}>
+            overall leaderboard
+          </button>
+          <button className={`tab ${tab === "judges" ? "active" : ""}`} onClick={() => setTab("judges")}>
+            judge view
+          </button>
+        </div>
+        <button 
+          className="btn btn-secondary btn-sm" 
+          onClick={handleRefresh} 
+          disabled={isPending}
+          style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
+        >
+          <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />
+          {isPending ? "Refreshing..." : "Refresh Results"}
         </button>
       </div>
 
       {tab === "overall" && (
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Team</th>
-                <th>Judges scored</th>
-                <th>Final score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.map((row, i) => (
-                <tr key={row.teamId}>
-                  <td><span className="rank">#{i + 1}</span></td>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      {row.teamName}
-                      {row.teamIdDisplay && <span className="badge badge-active">ID: {row.teamIdDisplay}</span>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {!leaderboard.length && <div className="empty">No teams in this round yet.</div>}
+          {leaderboard.map((row, i) => {
+            const isExpanded = expandedTeam === row.teamId;
+            return (
+              <div key={row.teamId} className="card" style={{ padding: "1rem", borderColor: isExpanded ? "var(--accent-primary)" : "var(--border-subtle)" }}>
+                <div 
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+                  onClick={() => setExpandedTeam(isExpanded ? null : row.teamId)}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                    <span className="rank" style={{ fontSize: "1.25rem" }}>#{i + 1}</span>
+                    <div style={{ fontWeight: 600, fontSize: "1.125rem", color: "#FFF" }}>{row.teamName}</div>
+                    {row.teamIdDisplay && <span className="badge badge-active">ID: {row.teamIdDisplay}</span>}
+                    <div className="muted" style={{ fontSize: 13 }}>{row.judgeCount} {row.judgeCount === 1 ? "judge" : "judges"} scored</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <div className="score-big">
+                      {row.finalScore === null ? "—" : `${row.finalScore.toFixed(1)} / ${maxTotal}`}
                     </div>
-                  </td>
-                  <td className="muted">{row.judgeCount}</td>
-                  <td className="score-big">
-                    {row.finalScore === null ? "—" : `${row.finalScore.toFixed(1)} / ${maxTotal}`}
-                  </td>
-                </tr>
-              ))}
-              {!leaderboard.length && (
-                <tr>
-                  <td colSpan={4} className="empty">No teams in this round yet.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    {isExpanded ? <ChevronUp size={20} className="muted" /> : <ChevronDown size={20} className="muted" />}
+                  </div>
+                </div>
+
+                {isExpanded && row.finalScore !== null && (
+                  <div style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px dashed var(--border-subtle)" }}>
+                    <h4 className="eyebrow" style={{ marginBottom: 12 }}>Category Breakdown (Averages)</h4>
+                    <div style={{ display: "grid", gap: 12 }}>
+                      {row.criterionAverages.map(c => (
+                        <div key={c.criterionId} style={{ background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: c.judgeScores.length > 1 ? 8 : 0 }}>
+                            <span style={{ fontWeight: 500 }}>{c.name}</span>
+                            <span className="mono" style={{ color: "var(--accent-primary)" }}>{c.average.toFixed(1)} / {c.maxScore}</span>
+                          </div>
+                          {c.judgeScores.length > 1 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: 8, fontSize: 13 }}>
+                              {c.judgeScores.map((js, idx) => (
+                                <div key={idx} className="muted mono">
+                                  {js.judgeName}: <span style={{ color: "var(--text-primary)" }}>{js.score}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {isExpanded && row.finalScore === null && (
+                  <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px dashed var(--border-subtle)", color: "var(--text-secondary)" }}>
+                    Pending evaluation.
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

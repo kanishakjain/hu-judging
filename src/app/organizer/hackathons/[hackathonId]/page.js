@@ -25,7 +25,7 @@ export default async function HackathonDetailPage({ params }) {
 
   const [{ data: teams }, { data: judges }, { data: rounds }] = await Promise.all([
     supabase.from("teams").select("id, name, members, team_code").eq("hackathon_id", hackathonId).order("created_at"),
-    supabase.from("judges").select("id, name, judge_code, company, designation").eq("hackathon_id", hackathonId).order("created_at"),
+    supabase.from("judges").select("id, name, judge_code, company, designation, password, auth_user_id").eq("hackathon_id", hackathonId).order("created_at"),
     supabase.from("rounds").select("id, name, status, order_index").eq("hackathon_id", hackathonId).order("order_index"),
   ]);
 

@@ -155,50 +155,32 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
   const [scores, setScores] = useState(initialScores);
   const [feedback, setFeedback] = useState(existingSubmission?.feedback || "");
   const [busy, setBusy] = useState(false);
-  const [autoSaveStatus, setAutoSaveStatus] = useState("");
 
   const total = criteria.reduce((sum, c) => sum + (Number(scores[c.id]) || 0), 0);
   const maxTotal = criteria.reduce((sum, c) => sum + Number(c.max_score), 0);
 
-  const handleSubmit = useCallback(async (e, goNext = false, silent = false) => {
+  const handleSubmit = useCallback(async (e, goNext = false) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!silent) setBusy(true);
-    if (silent) setAutoSaveStatus("Saving...");
+    setBusy(true);
     
     const promise = submitScore({ roundId, teamId: team.id, feedback, scores });
     
-    if (!silent) {
-      toast.promise(promise, {
-        loading: 'Saving scores...',
-        success: (res) => {
-          if (res.error) throw new Error(res.error);
-          if (goNext && onNext) onNext();
-          return existingSubmission?.submitted ? "Scores updated successfully!" : "Scores submitted successfully!";
-        },
-        error: (err) => err.message || 'Failed to save scores'
-      });
-    }
+    toast.promise(promise, {
+      loading: 'Saving scores...',
+      success: (res) => {
+        if (res.error) throw new Error(res.error);
+        if (goNext && onNext) onNext();
+        return existingSubmission?.submitted ? "Scores updated successfully!" : "Scores submitted successfully!";
+      },
+      error: (err) => err.message || 'Failed to save scores'
+    });
 
     try {
-      const res = await promise;
-      if (silent && !res.error) setAutoSaveStatus("Saved");
+      await promise;
     } finally {
-      if (!silent) setBusy(false);
+      setBusy(false);
     }
   }, [roundId, team.id, feedback, scores, onNext, existingSubmission]);
-
-  // Auto-Save effect
-  useEffect(() => {
-    // Only auto-save if something actually changed from initial state
-    const changed = Object.keys(scores).some(k => scores[k] !== initialScores[k]) || feedback !== (existingSubmission?.feedback || "");
-    if (!changed) return;
-
-    const timer = setTimeout(() => {
-      handleSubmit(null, false, true);
-    }, 2000);
-    
-    return () => clearTimeout(timer);
-  }, [scores, feedback, initialScores, existingSubmission, handleSubmit]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -237,7 +219,6 @@ function ScoreForm({ roundId, team, criteria, existingSubmission, onNext, onPrev
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
           {existingSubmission?.submitted && <span className="badge badge-active">submitted</span>}
-          {autoSaveStatus && <span className="muted text-xs mono">{autoSaveStatus}</span>}
         </div>
       </div>
 

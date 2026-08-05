@@ -4,6 +4,7 @@ import { useState } from "react";
 import { addJudge, deleteJudge } from "@/app/organizer/hackathons/actions";
 import SubmitButton from "@/components/SubmitButton";
 import CsvImportJudges from "./CsvImportJudges";
+import { Copy, Check } from "lucide-react";
 
 function randomCode() {
   return "J-" + Math.random().toString(36).slice(2, 7).toUpperCase();
@@ -16,6 +17,13 @@ function randomPassword() {
 export default function JudgesPanel({ hackathonId, judges }) {
   const [error, setError] = useState(null);
   const [defaults, setDefaults] = useState({ code: randomCode(), password: randomPassword() });
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleCopy = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   async function handleAdd(formData) {
     const res = await addJudge(hackathonId, formData);
@@ -70,19 +78,41 @@ export default function JudgesPanel({ hackathonId, judges }) {
       {!judges?.length && <div className="empty">No judges yet.</div>}
 
       {judges?.map((j) => (
-        <div key={j.id} className="list-item">
-          <div>
-            <div style={{ fontWeight: 600 }}>
+        <div key={j.id} className="list-item" style={{ alignItems: "flex-start" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
               {j.name || "Unnamed judge"}
-              {j.company && <span className="muted" style={{ fontWeight: 400, marginLeft: 8 }}>{j.company}</span>}
-              {j.designation && <span className="muted" style={{ fontWeight: 400, marginLeft: 4 }}>- {j.designation}</span>}
+              {j.company && <span className="muted" style={{ fontWeight: 400 }}>{j.company}</span>}
+              {j.designation && <span className="muted" style={{ fontWeight: 400 }}>- {j.designation}</span>}
+              <button 
+                type="button"
+                onClick={() => handleCopy(`Judge Name: ${j.name || "Unnamed judge"}\nJudge ID: ${j.judge_code}\nPassword: ${j.password}`, `all-${j.id}`)}
+                className="btn btn-secondary btn-sm"
+                style={{ marginLeft: 'auto', display: 'flex', gap: 6, fontSize: 12, padding: "4px 8px", minHeight: "28px" }}
+                title="Copy all credentials"
+              >
+                {copiedId === `all-${j.id}` ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+                {copiedId === `all-${j.id}` ? "Copied!" : "Copy Details"}
+              </button>
             </div>
-            <div className="mono muted" style={{ fontSize: 12 }}>
-              ID: {j.judge_code} · Password: {j.password}
+            <div className="mono muted" style={{ fontSize: 13, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                ID: {j.judge_code}
+                <button type="button" onClick={() => handleCopy(j.judge_code, `id-${j.id}`)} style={{ cursor: "pointer", background: "none", border: "none", color: "inherit", opacity: 0.7 }} title="Copy ID">
+                  {copiedId === `id-${j.id}` ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+                </button>
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                Password: {j.password}
+                <button type="button" onClick={() => handleCopy(j.password, `pass-${j.id}`)} style={{ cursor: "pointer", background: "none", border: "none", color: "inherit", opacity: 0.7 }} title="Copy Password">
+                  {copiedId === `pass-${j.id}` ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+                </button>
+              </span>
             </div>
           </div>
           <button
             className="btn btn-danger btn-sm"
+            style={{ marginLeft: 16 }}
             onClick={() => deleteJudge(hackathonId, j.id, j.auth_user_id)}
           >
             Remove
